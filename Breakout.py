@@ -25,7 +25,7 @@ parser.add_argument('--load', default=False, help='Whether or not to load pretra
                     dest='load', type=str2bool)
 parser.add_argument('--render', default=1, help='How many windows you want to see. This slows the training a bit',
                     dest='render', type=int)
-parser.add_argument('--processes', default=16, help='Number of processes that plays the game. Note: there will always be a process to learn from it',
+parser.add_argument('--processes', default=20, help='Number of processes that plays the game. Note: there will always be a process to learn from it',
                     dest='processes', type=int)
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -50,7 +50,7 @@ def conv2d_size_out(shape, filters, kernel_size , stride = 1, padding=0):
     return out_shape
 
 def preprocess_state(observation):
-        return np.ascontiguousarray(observation.transpose((2, 0, 1)), dtype=np.float32) / 255
+    return np.ascontiguousarray(observation.transpose((2, 0, 1)), dtype=np.float32) / 255
 
 def to_categorical(y, num_classes):
     """ 1-hot encodes a tensor """
@@ -92,7 +92,6 @@ def cpu_thread(render, memory_queue, process_queue, common_dict):
             action_list=[]
             observation_list=[]
             while not done:
-                observation=preprocess_state(observation)
                 observation_list.append(observation)
                 process_queue.put((pid, observation))
                 while pid not in common_dict:
@@ -136,7 +135,7 @@ def gpu_thread(load, memory_queue, process_queue, common_dict):
                 actions=[]
                 for j in range(BATCH_SIZE):
                     temp = memory_queue.get(True)
-                    states.append(temp[0])
+                    states.append(preprocess_state(temp[0]))
                     rewards.append(temp[1])
                     actions.append(temp[2])
                 states=np.array(states)
@@ -161,7 +160,8 @@ def gpu_thread(load, memory_queue, process_queue, common_dict):
                 ppo.eval()
                 pid, observation = process_queue.get(True)
                 with torch.no_grad():
-                    common_dict[pid]= ppo.forward(torch.from_numpy(observation).unsqueeze(0).to(device))[0].to("cpu")
+                    #I know that I preprocess each frame twice, but this is much more RAM effective to store the image as an array of uint8 than float32
+                    common_dict[pid]= ppo.forward(torch.from_numpy(preprocess_state(observation)).unsqueeze(0).to(device))[0].to("cpu")
     except Exception as e: 
         print(e, flush=True)
         torch.save({
