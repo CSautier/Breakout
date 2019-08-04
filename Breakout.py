@@ -163,7 +163,8 @@ def gpu_thread(load, memory_queue, process_queue, common_dict):
                     #I know that I preprocess each frame twice, but this is much more RAM effective to store the image as an array of uint8 than float32
                     common_dict[pid]= ppo.forward(torch.from_numpy(preprocess_state(observation)).unsqueeze(0).to(device))[0].to("cpu")
     except Exception as e: 
-        print(e, flush=True)
+        print(e)
+        print('saving before interruption', flush=True)
         torch.save({
                 'model_state_dict': ppo.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict()
@@ -193,7 +194,6 @@ def main(args):
         pool.join()
 
     except KeyboardInterrupt:
-        pool.terminate()
         pool.join()
     
 if __name__ == "__main__":
