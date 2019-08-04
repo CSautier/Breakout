@@ -25,7 +25,7 @@ parser.add_argument('--load', default=False, help='Whether or not to load pretra
                     dest='load', type=str2bool)
 parser.add_argument('--render', default=1, help='How many windows you want to see. This slows the training a bit',
                     dest='render', type=int)
-parser.add_argument('--processes', default=20, help='Number of processes that plays the game. Note: there will always be a process to learn from it',
+parser.add_argument('--processes', default=16, help='Number of processes that plays the game. Note: there will always be a process to learn from it',
                     dest='processes', type=int)
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -110,11 +110,12 @@ def cpu_thread(render, memory_queue, process_queue, common_dict):
             for i in range(len(reward_list)-2, -1, -1):
                 reward_list[i]+=reward_list[i+1] * GAMMA #compute the discounted obtained reward for each step
             for i in range(len(observation_list)):
-                memory_queue.put((observation_list[i], reward_list[i], action_list[i]))
-    except Exception as e: print(e)
+                memory_queue.put((observation_list.pop(), reward_list.pop(), action_list.pop()))
+    except Exception as e: print(e, flush=True)
 
 
 def gpu_thread(load, memory_queue, process_queue, common_dict):
+    #the only thread that has an access to the gpu, it willl then perform all the NN computation
     import signal
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
@@ -162,7 +163,7 @@ def gpu_thread(load, memory_queue, process_queue, common_dict):
                 with torch.no_grad():
                     common_dict[pid]= ppo.forward(torch.from_numpy(observation).unsqueeze(0).to(device))[0].to("cpu")
     except Exception as e: 
-        print(e)
+        print(e, flush=True)
         torch.save({
                 'model_state_dict': ppo.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict()
@@ -171,10 +172,11 @@ def gpu_thread(load, memory_queue, process_queue, common_dict):
 def main(args):
     #create shared variables between all the processes
     manager = mp.Manager()
-    #contains information about the weights
+    #used to send the results of the net
     common_dict = manager.dict()
     #a queue of batches to be fed to the training net
     mem_queue = manager.Queue(800)
+    #a queue of operations pending
     process_queue = manager.Queue(args.processes)
     
     #initializes all workers
