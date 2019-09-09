@@ -2,6 +2,7 @@ import os
 import gym
 import time
 import torch
+import psutil
 import argparse
 import numpy as np
 import torch.nn as nn
@@ -25,15 +26,14 @@ parser.add_argument('--load', default=False, help='Whether or not to load pretra
                     dest='load', type=str2bool)
 parser.add_argument('--render', default=1, help='How many windows you want to see. This slows the training a bit',
                     dest='render', type=int)
-parser.add_argument('--processes', default=20, help='Number of processes that plays the game. Note: there will always be a process to learn from it',
+parser.add_argument('--processes', default=16, help='Number of processes that plays the game. Note: there will always be a process to learn from it',
                     dest='processes', type=int)
 
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 GAMMA=0.95
 BATCH_SIZE=400
 LOSS_CLIPPING=0.1
-ENTROPY_LOSS=1e-4
-env = gym.make('Breakout-v0')
+ENTROPY_LOSS=1e-3
 
 def conv2d_size_out(shape, filters, kernel_size , stride = 1, padding=0):
     if(len(shape)>3):
@@ -83,6 +83,7 @@ def cpu_thread(render, memory_queue, process_queue, common_dict):
     import signal
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
+        env = gym.make('Breakout-v0')
         pid = os.getpid()
         print('process started with pid: {}'.format(pid), flush=True)
         while True:
@@ -92,6 +93,9 @@ def cpu_thread(render, memory_queue, process_queue, common_dict):
             action_list=[]
             observation_list=[]
             while not done:
+                while psutil.virtual_memory()[4]<1000000000:
+                    print('waiting for more RAM')
+                    time.sleep(0.01)
                 observation_list.append(observation)
                 process_queue.put((pid, observation))
                 while pid not in common_dict:
@@ -126,7 +130,6 @@ def gpu_thread(load, memory_queue, process_queue, common_dict):
             checkpoint=torch.load('./model/breakout.pt')
             ppo.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        ppo.eval()
         while True:
             if memory_queue.qsize()>=BATCH_SIZE:
                 ppo.train()
@@ -151,6 +154,8 @@ def gpu_thread(load, memory_queue, process_queue, common_dict):
                 print('Loss actor: {0:7.3f}\tLoss critic: {1:7.3f}\tLoss entropy: {2:7.3f}'.format(100*lossactor, 100*losscritic, 100*lossentropy), flush=True)
                 optimizer.zero_grad()
                 (lossactor + losscritic + lossentropy).backward()
+                for param in ppo.parameters():
+                    param.grad.data.clamp_(-0.1, 0.1)
                 optimizer.step()
                 torch.save({
                     'model_state_dict': ppo.state_dict(),
@@ -183,7 +188,7 @@ def main(args):
     #initializes all workers
     pool = mp.Pool(args.processes+1)
     try:
-        pool.apply_async(gpu_thread, (True, mem_queue, process_queue, common_dict))
+        pool.apply_async(gpu_thread, (args.load, mem_queue, process_queue, common_dict))
         for i in range(min(args.render, args.processes)):
             pool.apply_async(cpu_thread, (True, mem_queue, process_queue, common_dict))
         for i in range(args.processes-args.render):
