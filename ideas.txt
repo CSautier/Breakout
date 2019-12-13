@@ -1,0 +1,61 @@
+Concept :
+
+Forward :
+
+Découper l'écran en ~AxA parties
+
+Pour chaque, faire tourner un classifier sur B classes (AxAxB)
++ des "coordonnées" (probablement un vecteur peu contraint de AxAxC)
+
+Sampler aléatoirement le link en dur choisi, on obtient AxA items
+
+Embedding B -> D (AxAxD)
+
+Coordonnées concat Embedding (AxAx(C+D))
+
+Actor critic après quelques couches linéaires + Leaky
+
+
+
+
+Difficultés à prévoir :
+
+Classification à plotter pour vérifier qu'il merde pas trop
+Chercher une façon de s'assurer une certaine distance entre les objets (?)
+
+Pistes d'améliorations :
+
+Chercher un moyen de découvrir les objets autrement que par AxA :
+
+RCNN Actor/Critic
+ce serait mieux si parfaitement exécuté (ce qui reste à PoC, mais me paraît impossible)
+
+Prédire direct coordonnées + classification + vecteur
+comment s'assurer que les coordonnées soient "dans le bon ordre" ? En donnant une seule conv peut-être
+comment s'assurer de l'unicité des classes ? Probablement un énorme problème
+
+Chaque classe cherches ses coordonnées + vecteur + "importance" elle-même
+comment linker 2 fois la même classe ? Probablement pas un énorme problème
+comment s'assurer de l'unicité des classes ? Probablement un énorme problème
+
+
+RCNN actor/critic :
+
+CNN
+
+ROI en mode actor/critic (PoC ?) Je peux me tromper, mais les anchors ne peuvent pas marcher en A/C
+
+ROI pooling
+
+coord (~bbox recentering) classification
+
+actor/critic
+
+
+RPN est impossible je pense car :
+- pas de IoU à feed en A/C
+- pas de continuité avec un nombre de pixel entier pour la bbox
+
+Fast RCNN au lieu de Faster RCNN ?
+ce serait lent mais probablement pas déconnant. Voir comment le ROI fonctionne.
+

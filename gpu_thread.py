@@ -65,7 +65,7 @@ def gpu_thread(load, memory_queue, process_queue, common_dict, workers):
         optimizer = optim.RMSprop(model.parameters(), lr=parameters.LEARNING_RATE)
         epochs = 0
         if load:
-            checkpoint = torch.load('./model/mariobot.pt')
+            checkpoint = torch.load('./model/breakout.pt')
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             epochs = checkpoint['epochs']
@@ -90,7 +90,7 @@ def gpu_thread(load, memory_queue, process_queue, common_dict, workers):
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'epochs': epochs
-                }, './model/mariobot.pt')
+                }, './model/breakout.pt')
                 common_dict['epoch'] = epochs
     except Exception as e:
         print(e)
@@ -99,4 +99,4 @@ def gpu_thread(load, memory_queue, process_queue, common_dict, workers):
             'model_state_dict': model.state_dict(),
             'optimizer_state_dict': optimizer.state_dict(),
             'epochs': epochs
-        }, './model/mariobot.pt')
+        }, './model/breakout.pt')

@@ -32,6 +32,7 @@ def generate_game(env, pid, process_queue, common_dict):
     prob_list = []
     observation_list = []
     frame_count = 0
+    live = 5
     while not done:
         observation = process_frame(observation)
         observation_list.append(observation)
@@ -42,6 +43,9 @@ def generate_game(env, pid, process_queue, common_dict):
         del common_dict[pid]
         action, prob = sample(action_prob)
         observation, reward, done, info = env.step(action)
+        if info['ale.lives'] < live:
+            live = info['ale.lives']
+            reward = -1
         action_list.append(action)
         prob_list.append(prob)
         reward_list.append(process_reward(reward))
